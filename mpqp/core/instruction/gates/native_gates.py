@@ -1061,7 +1061,125 @@ class TOF(InvolutionGate, NoParameterGate, ControlledGate):
         3
     )
 
+class My_U(RotationGate, SingleQubitGate):
+    r"""One qubit Phase gate of angle `\frac{2i\pi}{2^k}`.
 
-NATIVE_GATES = [CNOT, CRk, CZ, H, Id, P, Rk, Rx, Ry, Rz, S, SWAP, T, TOF, U, X, Y, Z]
+    Args:
+        k: Parameter used in the definition of the phase to apply.
+        target: Index referring to the qubit on which the gate will be applied.
+
+    Example:
+        >>> Rk(5, 0).to_matrix()
+        array([[1.        +0.j        , 0.        +0.j        ],
+               [0.        +0.j        , 0.98078528+0.19509032j]])
+
+    """
+
+    def braket_gate(cls):
+        from braket.circuits import gates
+
+        return gates.PhaseShift
+
+    def qiskit_gate(cls):
+        from qiskit.circuit.library import PhaseGate
+
+        return PhaseGate
+
+    def __init__(self, A, power: int, target: int):
+
+        self.qlm_aqasm_keyword = "U"
+
+        self.parameters = [A, power]
+        definition = UnitaryMatrix(self.to_matrix(), **self.native_gate_options)
+        ParametrizedGate.__init__(self, definition, [target], [self.A, self.power], "My_U")
+
+    @property
+    def get_U_diag_matrix(self) -> tuple:
+        (lambda_0, lambda_1), (u_0, u_1) = np.linalg.eig(self.A)
+        V = np.array([-u_1,-u_0])
+        t = (3 * np.pi / 4)
+        U_diag = np.array([[np.exp(1j * lambda_0 * t), 0], [0, np.exp(1j * lambda_1 * t)]])
+        return (U_diag, V)
+
+    @property
+    def A(self) -> float:
+        """See corresponding argument."""
+        return self.parameters[0]
+
+    @property
+    def power(self) -> float:
+        """see corresponding argument."""
+        return self.parameters[1]
+
+    def to_matrix(self) -> Matrix:
+        (U_diag, V) = self.get_U_diag_matrix
+        U = V
+        for _ in range(self.power):
+            U = U @ U_diag
+        return U_diag @ V
+
+    def __repr__(self):
+        return f"{type(self).__name__}({self.power}, {self.targets[0]})"
+
+class CU(RotationGate, ControlledGate):
+    """Two-qubit Controlled-Rk gate.
+
+    Args:
+        k: Parameter used in the definition of the phase to apply.
+        control: Index referring to the qubit used to control the gate.
+        target: Index referring to the qubit on which the gate will be applied.
+
+    Example:
+        >>> print(clean_matrix(CRk(4, 0, 1).to_matrix()))
+        [[1, 0, 0, 0],
+         [0, 1, 0, 0],
+         [0, 0, 1, 0],
+         [0, 0, 0, 0.9238795+0.3826834j]]
+
+    """
+
+    def braket_gate(cls):
+        from braket.circuits import gates
+
+        return gates.CPhaseShift
+
+    def qiskit_gate(cls):
+        from qiskit.circuit.library import CPhaseGate
+
+        return CPhaseGate
+
+    def __init__(self, A ,power: int, control: int, target: int):
+
+        self.qlm_aqasm_keyword = ["CU"]
+        self.parameters = [A, power]
+        ControlledGate.__init__(self, [control], [target], My_U(A, power, target), "CU")
+        definition = UnitaryMatrix(self.to_matrix(), **self.native_gate_options)
+        ParametrizedGate.__init__(self, definition, [target], [A, power], "CU")
+
+    @property
+    def A(self) -> float:
+        """See corresponding argument."""
+        return self.parameters[0]
+
+    @property
+    def power(self) -> float:
+        """see corresponding argument."""
+        return self.parameters[1]
+
+    def to_matrix(self) -> Matrix:
+        U_diag, V = self.get_U_diag_matrix(self.A)
+        U = V
+        for _ in range(self.power):
+            U = U @ U_diag
+        return U_diag @ V
+
+    def __repr__(self):
+        return f"{type(self).__name__}({self.power}, {self.targets[0]})"
+
+    nb_qubits = (  # pyright: ignore[reportAssignmentType,reportIncompatibleMethodOverride]
+        2
+    )
+
+NATIVE_GATES = [CNOT, CRk, CZ, H, Id, P, Rk, Rx, Ry, Rz, S, SWAP, T, TOF, U, X, Y, Z, My_U, CU]
 # 3M-TODO : check the possibility to detect when a custom gate can be defined as a native gate, problem with
 #  parametrized gates maybe

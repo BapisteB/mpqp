@@ -45,6 +45,8 @@ from .gates import (
     X,
     Y,
     Z,
+    My_U,
+    CU
 )
 from .measures import (
     Basis,
