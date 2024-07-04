@@ -22,7 +22,6 @@ from .native_gates import (
     X,
     Y,
     Z,
-    My_U,
     CU
 )
 from .parametrized_gate import ParametrizedGate
